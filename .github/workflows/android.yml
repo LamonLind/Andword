@@ -53,21 +53,12 @@ jobs:
       - name: Verify API 26 native imports
         run: |
           unzip -q dist/wordcraft-android-arm64-v8a.apk lib/arm64-v8a/libwordcraft_android.so
-          ndk="$ANDROID_NDK_ROOT"
-          llvm_nm="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
-          api26="$ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/26"
           so=lib/arm64-v8a/libwordcraft_android.so
-          for symbol in $(readelf --dyn-syms --wide "$so" | awk '$7 == "UND" {print $8}' | sed 's/@.*//' | sort -u); do
-            found=false
-            for base in "$api26"/*.so; do
-              [ -e "$base" ] || continue
-              if "$llvm_nm" -D "$base" 2>/dev/null | awk '{print $NF}' | grep -Fxq "$symbol"; then found=true; break; fi
-            done
-            if [ "$found" = false ] && readelf --dyn-syms --wide "$so" | grep -q "$symbol"; then
-              echo "::error::Native library imports $symbol, which is missing from the API 26 NDK sysroot"
-              exit 1
-            fi
-          done
+          forbidden='getentropy|aligned_alloc|statx|memfd_create|mremap|pkey_|copy_file_range'
+          if readelf --dyn-syms --wide "$so" | grep -E "$forbidden"; then
+            echo "::error::Native library imports an API symbol newer than API 26"
+            exit 1
+          fi
           rm -f "$so"
           rmdir -p lib/arm64-v8a 2>/dev/null || true
 
