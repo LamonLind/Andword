@@ -14,7 +14,8 @@ plugins {
 val cargoWorkspaceDir: File = rootDir.parentFile.parentFile.parentFile
 val rustAbis: List<String> =
     providers.gradleProperty("wordcraft.abis").getOrElse("arm64-v8a,x86_64").split(',').map { it.trim() }.filter { it.isNotEmpty() }
-val minApi = 29
+// Android 8.0 (Oreo, API 26) and newer.
+val minApi = 26
 
 // The app's version: gradle.properties' wordcraft.version, or the version tag's when the release
 // workflow builds a release. The version code follows from it (0.0.1-beta → 101, 0.0.1-beta.2 →
