@@ -10,7 +10,7 @@ kotlinxCoroutines = "1.10.2"
 jna = "5.19.1"
 junit = "4.13.2"
 exifinterface = "1.4.1"
-desugarJdk = "2.2.1"
+desugarJdk = "2.1.5"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
