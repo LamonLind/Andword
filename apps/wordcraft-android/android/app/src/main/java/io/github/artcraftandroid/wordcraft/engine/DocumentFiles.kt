@@ -11,7 +11,7 @@ object DocumentFiles {
     val OPEN_TYPES = arrayOf(
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.template",
-        "application/vnd.ms-word.document.macroEnabled.12",
+        "application/vnd.ms-word.document.macroenabled.12",
         "application/msword",
         "application/rtf",
         "text/rtf",
@@ -29,13 +29,15 @@ object DocumentFiles {
     fun folderOf(context: Context, uri: Uri): String? {
         val path = runCatching {
             when (uri.authority) {
-                "media" -> context.contentResolver.query(uri, arrayOf(android.provider.MediaStore.MediaColumns.RELATIVE_PATH), null, null, null)?.use { c ->
-                    if (c.moveToFirst()) c.getString(0) else null
-                }
+                "media" -> if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    context.contentResolver.query(uri, arrayOf(android.provider.MediaStore.MediaColumns.RELATIVE_PATH), null, null, null)?.use { c ->
+                        if (c.moveToFirst()) c.getString(0) else null
+                    }
+                } else null
                 // primary:Documents/Letters/letter.docx
                 "com.android.externalstorage.documents" -> android.provider.DocumentsContract.getDocumentId(uri).substringAfter(':').substringBeforeLast('/', "")
                 // document:1000042739 (a picker's Recent or Documents list): the media store row's folder
-                "com.android.providers.media.documents" -> {
+                "com.android.providers.media.documents" -> if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                     val id = android.provider.DocumentsContract.getDocumentId(uri).substringAfter(':').toLongOrNull()
                     id?.let {
                         val files = android.provider.MediaStore.Files.getContentUri("external")
@@ -43,7 +45,7 @@ object DocumentFiles {
                             if (c.moveToFirst()) c.getString(0) else null
                         }
                     }
-                }
+                } else null
                 // raw:/storage/emulated/0/Download/letter.docx
                 "com.android.providers.downloads.documents" -> android.provider.DocumentsContract.getDocumentId(uri).takeIf { it.startsWith("raw:") }
                     ?.substringAfter("/storage/emulated/0/")?.substringBeforeLast('/', "")

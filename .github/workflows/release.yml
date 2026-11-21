@@ -1,5 +1,5 @@
-# Release pipeline: pushing a version tag (v0.0.1-beta, v0.2.0, v1.0.0-rc.1, …) builds the APKs
-# (one for 64-bit ARM phones, one for 32-bit ARM ones) signed with the release key and makes them a
+# Release pipeline: pushing a version tag (v0.0.1-beta, v0.2.0, v1.0.0-rc.1, …) builds an arm64-v8a APK
+# signed with the release key and makes it a
 # draft GitHub release named after the tag, with an empty "What's Changed" section. Fill that in on
 # GitHub and publish the draft: it becomes the latest release (betas too: while the app is in beta,
 # every release is one).
@@ -81,9 +81,7 @@ jobs:
             echo "::warning::No release key: this dry run is signed with the debug key"
           fi
 
-      # one APK per ABI (each about half the size of one holding both): 64-bit ARM for most
-      # phones (wordcraft-android-<version>.apk), 32-bit ARM for older and low-end ones
-      # (wordcraft-android-<version>-armeabi-v7a.apk)
+      # 64-bit ARM phones only (wordcraft-android-<version>.apk)
       - name: Build
         working-directory: apps/wordcraft-android/android
         env:
@@ -93,11 +91,8 @@ jobs:
           WORDCRAFT_KEY_PASSWORD: ${{ secrets.WORDCRAFT_KEY_PASSWORD }}
         run: |
           mkdir -p "$GITHUB_WORKSPACE/dist"
-          for abi in arm64-v8a armeabi-v7a; do
-            ./gradlew assembleRelease "-Pwordcraft.abis=$abi" "-Pwordcraft.version=$VERSION" --no-daemon
-            suffix=""; [ "$abi" = arm64-v8a ] || suffix="-$abi"
-            cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/dist/wordcraft-android-$VERSION$suffix.apk"
-          done
+          ./gradlew assembleRelease "-Pwordcraft.version=$VERSION" --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/dist/wordcraft-android-$VERSION.apk"
 
       - name: APK
         run: |

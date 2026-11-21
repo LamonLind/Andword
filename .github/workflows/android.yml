@@ -1,6 +1,7 @@
 name: Android
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches: [main]
@@ -45,10 +46,26 @@ jobs:
         working-directory: apps/wordcraft-android/android
         run: |
           mkdir -p "$GITHUB_WORKSPACE/dist"
-          ./gradlew assembleRelease -Pwordcraft.abis=arm64-v8a --no-daemon
+          ./gradlew lint assembleDebug assembleRelease --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/dist/wordcraft-android-arm64-v8a-debug.apk"
           cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/dist/wordcraft-android-arm64-v8a.apk"
-          ./gradlew assembleRelease -Pwordcraft.abis=armeabi-v7a --no-daemon
-          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/dist/wordcraft-android-armeabi-v7a.apk"
+
+      - name: Verify API 26 native imports
+        run: |
+          unzip -q dist/wordcraft-android-arm64-v8a.apk lib/arm64-v8a/libwordcraft_android.so
+          so=lib/arm64-v8a/libwordcraft_android.so
+          forbidden='getentropy|aligned_alloc|statx|memfd_create|mremap|pkey_|copy_file_range'
+          if readelf --dyn-syms --wide "$so" | grep -E "$forbidden"; then
+            echo "::error::Native library imports an API symbol newer than API 26"
+            exit 1
+          fi
+          rm -f "$so"
+          rmdir -p lib/arm64-v8a 2>/dev/null || true
+
+      - name: Verify manifest minimum SDK
+        run: |
+          aapt="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)aapt"
+          "$aapt" dump badging dist/wordcraft-android-arm64-v8a.apk | grep -F "sdkVersion:'26'"
 
       - name: Verify minimum Android API
         run: |

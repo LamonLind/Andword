@@ -12,8 +12,8 @@ plugins {
 // The Rust half of the app: this Gradle project is the android/ folder of the `wordcraft-android`
 // crate (apps/wordcraft-android), which sits in the WordCraft cargo workspace two folders up.
 val cargoWorkspaceDir: File = rootDir.parentFile.parentFile.parentFile
-val rustAbis: List<String> =
-    providers.gradleProperty("wordcraft.abis").getOrElse("arm64-v8a,x86_64").split(',').map { it.trim() }.filter { it.isNotEmpty() }
+// Distribution is arm64-v8a only. Keeping the NDK target fixed prevents accidental API/ABI drift.
+val rustAbis: List<String> = listOf("arm64-v8a")
 // Android 8.0 (Oreo, API 26) and newer.
 val minApi = 26
 
@@ -323,6 +323,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
     buildFeatures {
         compose = true
@@ -414,6 +415,7 @@ tasks.configureEach {
 }
 
 dependencies {
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
