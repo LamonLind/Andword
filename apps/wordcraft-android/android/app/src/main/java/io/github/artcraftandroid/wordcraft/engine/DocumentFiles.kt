@@ -11,7 +11,7 @@ object DocumentFiles {
     val OPEN_TYPES = arrayOf(
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.template",
-        "application/vnd.ms-word.document.macroEnabled.12",
+        "application/vnd.ms-word.document.macroenabled.12",
         "application/msword",
         "application/rtf",
         "text/rtf",
