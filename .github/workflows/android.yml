@@ -59,8 +59,9 @@ jobs:
           so=lib/arm64-v8a/libwordcraft_android.so
           for symbol in $(readelf --dyn-syms --wide "$so" | awk '$7 == "UND" {print $8}' | sed 's/@.*//' | sort -u); do
             found=false
-            for base in libc libm libdl liblog; do
-              if "$llvm_nm" -D "$api26/$base.so" 2>/dev/null | awk '{print $NF}' | grep -Fxq "$symbol"; then found=true; break; fi
+            for base in "$api26"/*.so; do
+              [ -e "$base" ] || continue
+              if "$llvm_nm" -D "$base" 2>/dev/null | awk '{print $NF}' | grep -Fxq "$symbol"; then found=true; break; fi
             done
             if [ "$found" = false ] && readelf --dyn-syms --wide "$so" | grep -q "$symbol"; then
               echo "::error::Native library imports $symbol, which is missing from the API 26 NDK sysroot"
