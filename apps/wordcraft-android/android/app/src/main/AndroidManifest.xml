@@ -2,7 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- documents other apps open with WordCraft by path (pickers need no permission) -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!-- Legacy direct-file VIEW/EDIT intents need this permission only on API 26-28.
+         SAF document URIs and app-private storage do not require storage permission. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <application
         android:name=".WordcraftApplication"

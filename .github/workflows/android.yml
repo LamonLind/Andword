@@ -45,10 +45,34 @@ jobs:
         working-directory: apps/wordcraft-android/android
         run: |
           mkdir -p "$GITHUB_WORKSPACE/dist"
-          ./gradlew assembleRelease -Pwordcraft.abis=arm64-v8a --no-daemon
+          ./gradlew lint assembleDebug assembleRelease --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/dist/wordcraft-android-arm64-v8a-debug.apk"
           cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/dist/wordcraft-android-arm64-v8a.apk"
-          ./gradlew assembleRelease -Pwordcraft.abis=armeabi-v7a --no-daemon
-          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/dist/wordcraft-android-armeabi-v7a.apk"
+
+      - name: Verify API 26 native imports
+        run: |
+          unzip -q dist/wordcraft-android-arm64-v8a.apk lib/arm64-v8a/libwordcraft_android.so
+          ndk="$ANDROID_NDK_ROOT"
+          llvm_nm="$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
+          api26="$ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/26"
+          so=lib/arm64-v8a/libwordcraft_android.so
+          for symbol in $(readelf --dyn-syms --wide "$so" | awk '$7 == "UND" {print $8}' | sed 's/@.*//' | sort -u); do
+            found=false
+            for base in libc libm libdl liblog; do
+              if "$llvm_nm" -D "$api26/$base.so" 2>/dev/null | awk '{print $NF}' | grep -Fxq "$symbol"; then found=true; break; fi
+            done
+            if [ "$found" = false ] && readelf --dyn-syms --wide "$so" | grep -q "$symbol"; then
+              echo "::error::Native library imports $symbol, which is missing from the API 26 NDK sysroot"
+              exit 1
+            fi
+          done
+          rm -f "$so"
+          rmdir -p lib/arm64-v8a 2>/dev/null || true
+
+      - name: Verify manifest minimum SDK
+        run: |
+          aapt="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)aapt"
+          "$aapt" dump badging dist/wordcraft-android-arm64-v8a.apk | grep -F "sdkVersion:'26'"
 
       - name: Verify minimum Android API
         run: |

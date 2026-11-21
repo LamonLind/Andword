@@ -4,6 +4,9 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Build
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -22,6 +25,17 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val vm: AppViewModel by viewModels()
+    private var pendingFileIntent: Intent? = null
+
+    private val readLegacyStorage = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val intent = pendingFileIntent
+        pendingFileIntent = null
+        if (granted) {
+            handle(intent)
+        } else {
+            vm.tell("Storage permission is needed to open this file.")
+        }
+    }
 
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -43,6 +57,17 @@ class MainActivity : ComponentActivity() {
     private val pickPhoto = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         val replace = replacing
         replacing = false
+        handlePickedPhoto(uri, replace)
+    }
+
+    /** API 26-29 fallback for devices without the Android 13 system photo picker. */
+    private val pickPhotoLegacy = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val replace = replacing
+        replacing = false
+        handlePickedPhoto(uri, replace)
+    }
+
+    private fun handlePickedPhoto(uri: android.net.Uri?, replace: Boolean) {
         if (uri != null) lifecycleScope.launch {
             val bytes = withContext(Dispatchers.IO) { runCatching { contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull() }
             when {
@@ -73,7 +98,9 @@ class MainActivity : ComponentActivity() {
         // the bars' icons follow the theme: dark on the light bars, light on the dark ones
         enableEdgeToEdge(SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT), SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT))
         super.onCreate(savedInstanceState)
-        window.isNavigationBarContrastEnforced = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
         setContent {
             WordcraftTheme(vm.themeChoice) {
                 // the bars' icons follow the app's theme (which may differ from the phone's)
@@ -112,7 +139,11 @@ class MainActivity : ComponentActivity() {
                         takePhoto.launch(null)
                     } else {
                         replacing = kind == "replace"
-                        pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        } else {
+                            pickPhotoLegacy.launch("image/*")
+                        }
                     }
                 }
             }
@@ -159,6 +190,14 @@ class MainActivity : ComponentActivity() {
     /** Documents other apps open (VIEW) or hand over to edit (EDIT) with WordCraft, and home-screen shortcuts to documents. */
     private fun handle(intent: Intent?) {
         val uri = intent?.data ?: return
+        if (uri.scheme == "file" &&
+            Build.VERSION.SDK_INT in Build.VERSION_CODES.O..Build.VERSION_CODES.P &&
+            checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingFileIntent = intent
+            readLegacyStorage.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+            return
+        }
         when (intent.action) {
             Intent.ACTION_VIEW -> vm.open(uri, writable = intent.flags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION != 0)
             Intent.ACTION_EDIT -> vm.open(uri, writable = true)
